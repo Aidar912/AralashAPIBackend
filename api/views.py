@@ -8,7 +8,6 @@ from rest_framework import generics
 from user.models import Subscription, Company, SubscriptionHistory
 from user.serializers import SubscriptionSerializer, CompanySerializer, SubscriptionHistorySerializer
 
-
 from django.shortcuts import get_object_or_404
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.views import APIView
@@ -46,7 +45,6 @@ class SubscriptionDeleteView(generics.DestroyAPIView):
     serializer_class = SubscriptionSerializer
 
 
-
 class GenerateKeyView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -55,7 +53,6 @@ class GenerateKeyView(APIView):
         api_key = APIKey.objects.create(user=user)
         return Response({
             'api_key': str(api_key.key),
-            'secret_key': api_key.secret_key
         }, status=status.HTTP_201_CREATED)
 
 
@@ -64,9 +61,8 @@ class CheckKeyView(APIView):
 
     def post(self, request):
         key_value = request.data.get('key')
-        secret_value = request.data.get('secret_key')
         try:
-            key = APIKey.objects.get(key=key_value, secret_key=secret_value, user=request.user, is_active=True)
+            key = APIKey.objects.get(key=key_value, user=request.user, is_active=True)
             return Response({'valid': True}, status=status.HTTP_200_OK)
         except APIKey.DoesNotExist:
             return Response({'valid': False}, status=status.HTTP_404_NOT_FOUND)
@@ -84,7 +80,6 @@ class RegenerateKeyView(APIView):
             new_key = APIKey.objects.create(user=request.user)
             return Response({
                 'new_api_key': str(new_key.key),
-                'secret_key': new_key.secret_key
             }, status=status.HTTP_201_CREATED)
         except APIKey.DoesNotExist:
             return Response({'error': 'API key not found or inactive'}, status=status.HTTP_404_NOT_FOUND)
@@ -153,6 +148,7 @@ class PaymentHistoryView(APIView):
         serializer = PaymentSerializer(paginated_payments, many=True)
         return paginator.get_paginated_response(serializer.data)
 
+
 class ChangeSubscriptionView(generics.UpdateAPIView):
     queryset = Company.objects.all()
     serializer_class = CompanySerializer
@@ -177,6 +173,7 @@ class ChangeSubscriptionView(generics.UpdateAPIView):
 
         return Response({"message": "Subscription updated successfully"}, status=status.HTTP_200_OK)
 
+
 class SubscriptionHistoryListView(generics.ListAPIView):
     serializer_class = SubscriptionHistorySerializer
     permission_classes = [IsAuthenticated]
@@ -187,5 +184,3 @@ class SubscriptionHistoryListView(generics.ListAPIView):
 
     def get_queryset(self):
         return SubscriptionHistory.objects.filter(user=self.request.user).order_by('-date')
-
-
