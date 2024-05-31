@@ -13,6 +13,8 @@ from datetime import timedelta
 from pathlib import Path
 import environ
 import os
+import firebase_admin
+from firebase_admin import credentials
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -69,6 +71,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'corsheaders',
     'rest_framework',
+    'social_django',
     'drf_yasg',
     'django_rest_passwordreset',
     'rest_framework_simplejwt',
@@ -110,7 +113,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'AralashAPI.wsgi.application'
-
+SERVER_IP = '127.0.0.1:8000'
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
@@ -223,3 +226,18 @@ SIMPLE_JWT = {
     'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
 
 }
+
+#google auth
+
+AUTHENTICATION_BACKENDS = (
+    'social_core.backends.google.GoogleOAuth2',
+    'django.contrib.auth.backends.ModelBackend',
+)
+
+SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = env('SOCIAL_AUTH_GOOGLE_OAUTH2_KEY')
+SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = env('SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET')
+
+
+
+cred = credentials.Certificate(f"{BASE_DIR}/aralashapi-firebase-adminsdk-4ncbc-ef933bd4a5.json")
+firebase_admin.initialize_app(cred)

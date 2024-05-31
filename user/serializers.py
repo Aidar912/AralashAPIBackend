@@ -8,7 +8,8 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from user.enum import Role
-from user.models import User
+from user.models import User, MonthlyUserStatistics, BusinessType, Company, UserCompanyRelation, Subscription, \
+    MonthlyCompanyStatistics
 
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -103,3 +104,38 @@ class ChangePasswordSerializer(serializers.Serializer):
 
 class ResetPasswordSerializer(serializers.Serializer):
     new_password = serializers.CharField(write_only=True)
+
+class BusinessTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BusinessType
+        fields = ['id', 'name', 'code', 'description']
+
+class SubscriptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Subscription
+        fields = ['id', 'name', 'max_requests_per_month', 'price', 'created_at']
+
+class CompanySerializer(serializers.ModelSerializer):
+    business_type = BusinessTypeSerializer()
+    subscription = SubscriptionSerializer()
+
+    class Meta:
+        model = Company
+        fields = ['id', 'name', 'business_type', 'registration_number', 'address', 'created_at', 'updated_at', 'subscription', 'requests_made_this_month']
+
+class UserCompanyRelationSerializer(serializers.ModelSerializer):
+    company = CompanySerializer()
+
+    class Meta:
+        model = UserCompanyRelation
+        fields = ['user', 'company', 'is_verified', 'verified_at', 'created_at']
+
+class MonthlyUserStatisticsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MonthlyUserStatistics
+        fields = ['user', 'month', 'requests_made']
+
+class MonthlyCompanyStatisticsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MonthlyCompanyStatistics
+        fields = ['company', 'month', 'requests_made']
