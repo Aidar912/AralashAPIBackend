@@ -17,12 +17,11 @@ import os
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-#Настройка env
+# Настройка env
 env = environ.Env()
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
-
-#Получение нужных данных из env
+# Получение нужных данных из env
 EMAIL_BACKEND = env('EMAIL_BACKEND')
 EMAIL_HOST = env('EMAIL_HOST')
 EMAIL_PORT = env.int('EMAIL_PORT')
@@ -33,10 +32,10 @@ DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL')
 SERVER_EMAIL = env('SERVER_EMAIL')
 EMAIL_ADMIN = env('EMAIL_ADMIN')
 
-#Настройки сервера
+# Настройки сервера
 PASSWORD_RESET_TIMEOUT = 3600
 
-#Настройка CORS
+# Настройка CORS
 CORS_ORIGIN_ALLOW_ALL = True
 CORS_ALLOW_METHODS = [
     'GET',
@@ -45,8 +44,6 @@ CORS_ALLOW_METHODS = [
     'DELETE'
 ]
 FRONTEND_BASE_URL = 'http://localhost:3000'
-
-
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
@@ -62,6 +59,8 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    "admin_interface",
+    "colorfield",
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -77,6 +76,9 @@ INSTALLED_APPS = [
     'user',
 ]
 
+X_FRAME_OPTIONS = "SAMEORIGIN"
+SILENCED_SYSTEM_CHECKS = ["security.W019"]
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -86,6 +88,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # 'api.middleware.APIKeyAuthMiddleware',
 ]
 
 ROOT_URLCONF = 'AralashAPI.urls'
@@ -170,14 +173,12 @@ STATIC_URL = '/static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'user.User'
 
-#Error log
+# Error log
 
 LOGGING_DIR = os.path.join(BASE_DIR, 'logs')
 os.makedirs(LOGGING_DIR, exist_ok=True)
 
-
-
-#Настройка REST
+# Настройка REST
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
