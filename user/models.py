@@ -190,3 +190,14 @@ class MonthlyCompanyStatistics(models.Model):
 
     def __str__(self):
         return f"Statistics for {self.company.name} - {self.month.strftime('%B %Y')}"
+
+class SubscriptionHistory(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    company = models.ForeignKey('Company', on_delete=models.CASCADE)
+    subscription = models.ForeignKey('Subscription', on_delete=models.CASCADE)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    date = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"{self.user.email} - {self.company.name} - {self.subscription.name} - {self.amount}"
+
