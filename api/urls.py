@@ -20,4 +20,9 @@ urlpatterns = [
     path('change-subscription/<int:pk>/', ChangeSubscriptionView.as_view(), name='change-subscription'),
     path('subscription-history/', SubscriptionHistoryListView.as_view(), name='subscription-history-list'),
 
+
+    path('payoff/vyvod', WithdrawalRequestView.as_view(), name='withdrawal_request'),
+    path('payoff/confirm_withdrawal', ConfirmWithdrawalRequestView.as_view(), name='confirm_withdrawal'),
+    path('payoff/cancel_withdrawal', CancelWithdrawalRequestView.as_view(), name='cancel_withdrawal'),
+    path('payoff/get_withdrawal_info', GetWithdrawalRequestView.as_view(), name='get_withdrawal_info'),
 ]

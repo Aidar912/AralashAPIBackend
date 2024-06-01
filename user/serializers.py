@@ -151,3 +151,7 @@ class SubscriptionHistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = SubscriptionHistory
         fields = ['user', 'company', 'subscription', 'amount', 'date']
+
+
+class BalanceTopUpSerializer(serializers.Serializer):
+    amount = serializers.DecimalField(max_digits=10, decimal_places=2)

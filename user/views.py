@@ -21,7 +21,7 @@ from user.models import User, MonthlyUserStatistics, Company, UserCompanyRelatio
     MonthlyCompanyStatistics
 from user.serializers import MyTokenObtainPairSerializer, RegisterSerializer, ChangePasswordSerializer, \
     EmailSerializer, ResetPasswordSerializer, MonthlyUserStatisticsSerializer, CompanySerializer, \
-    UserCompanyRelationSerializer, BusinessTypeSerializer, MonthlyCompanyStatisticsSerializer
+    UserCompanyRelationSerializer, BusinessTypeSerializer, MonthlyCompanyStatisticsSerializer, BalanceTopUpSerializer
 
 
 # Create your views here.
@@ -386,6 +386,7 @@ class BusinessTypeListCreateView(generics.ListCreateAPIView):
     def post(self, request, *args, **kwargs):
         return super().post(request, *args, **kwargs)
 
+
 class CompanyListCreateView(generics.ListCreateAPIView):
     queryset = Company.objects.all()
     serializer_class = CompanySerializer
@@ -397,7 +398,14 @@ class CompanyListCreateView(generics.ListCreateAPIView):
 
     @swagger_auto_schema(tags=["Company"])
     def post(self, request, *args, **kwargs):
-        return super().post(request, *args, **kwargs)
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            company = serializer.save()
+            # Создание связи между пользователем и компанией
+            UserCompanyRelation.objects.create(user=request.user, company=company, is_verified=True)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class UserCompanyRelationListView(generics.ListAPIView):
     serializer_class = UserCompanyRelationSerializer
@@ -432,3 +440,24 @@ class MonthlyCompanyStatisticsListView(generics.ListAPIView):
     def get_queryset(self):
         user_companies = UserCompanyRelation.objects.filter(user=self.request.user, is_verified=True).values_list('company', flat=True)
         return MonthlyCompanyStatistics.objects.filter(company__in=user_companies)
+
+
+class BalanceTopUpView(APIView):
+    permission_classes = [IsAuthenticated]
+    @swagger_auto_schema(tags=["User"],request_body=BalanceTopUpSerializer)
+    def post(self, request):
+        serializer = BalanceTopUpSerializer(data=request.data)
+        if serializer.is_valid():
+            amount = serializer.validated_data['amount']
+            user = request.user
+            user.balance += amount
+            user.save()
+            return Response(
+                {
+                    "status": "success",
+                    "message": "Balance topped up successfully",
+                    "new_balance": float(user.balance)
+                },
+                status=status.HTTP_200_OK
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

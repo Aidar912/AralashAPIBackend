@@ -51,6 +51,7 @@ class User(AbstractUser):
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     is_email = models.BooleanField(default=False)
+    balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
     date_joined = models.DateTimeField(default=timezone.now)
     requests_made_this_month = models.IntegerField(default=0)
     USERNAME_FIELD = 'email'
@@ -139,7 +140,8 @@ class Company(models.Model):
     requests_made_this_month = models.IntegerField(default=0)
 
     def get_current_month(self):
-        return datetime(now().year, now().month, 1)
+        now = timezone.now()
+        return datetime(now.year, now.month, 1, tzinfo=now.tzinfo)
 
     def get_or_create_monthly_statistics(self):
         current_month = self.get_current_month()
@@ -157,7 +159,9 @@ class Company(models.Model):
 
     def can_make_request(self):
         stats = self.get_or_create_monthly_statistics()
-        return stats.requests_remaining() > 0
+        if self.subscription:
+            return stats.requests_remaining() > 0
+        return False
 
     def __str__(self):
         return self.name
@@ -182,14 +186,12 @@ class MonthlyCompanyStatistics(models.Model):
     month = models.DateField()
     requests_made = models.IntegerField(default=0)
 
-    class Meta:
-        unique_together = ('company', 'month')
-
     def requests_remaining(self):
-        return self.requests_made
+        return self.company.subscription.max_requests_per_month - self.requests_made
 
     def __str__(self):
-        return f"Statistics for {self.company.name} - {self.month.strftime('%B %Y')}"
+        return f"{self.company.name} - {self.month.strftime('%B %Y')}"
+
 
 class SubscriptionHistory(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
