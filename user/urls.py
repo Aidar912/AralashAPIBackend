@@ -25,4 +25,5 @@ urlpatterns = [
     path('company-statistics/', MonthlyCompanyStatisticsListView.as_view(), name='company-statistics-list'),
 
     path('topup', BalanceTopUpView.as_view(), name='balance_topup'),
+    path('user/', UserDetailView.as_view(), name='user-detail'),
 ]

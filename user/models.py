@@ -20,6 +20,7 @@ class UserManager(BaseUserManager):
         email = self.normalize_email(email)
         user = self.model(email=email, **kwargs)
         user.set_password(password)
+        user.type = Role.USER.value
         user.save(using=self._db)
         return user
 
@@ -83,10 +84,7 @@ class User(AbstractUser):
         return self.email
 
 
-@receiver(pre_save, sender=User)
-def set_default_photo(sender, instance, **kwargs):
-    if not instance.photo:
-        instance.photo = f'http://{settings.SERVER_IP}/{settings.MEDIA_URL}DEFAULTS/DEFAULT_IMAGE.png'
+
 
 
 class Subscription(models.Model):
