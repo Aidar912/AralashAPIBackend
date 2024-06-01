@@ -3,11 +3,13 @@ import uuid
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
-from django.shortcuts import render, redirect
+from django.shortcuts import redirect
 from django.urls import reverse
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
-from rest_framework import generics, status
+from firebase_admin import auth
+from rest_framework import generics
+from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -15,9 +17,11 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from AralashAPI.settings import FRONTEND_BASE_URL, EMAIL_HOST_USER
-from user.models import User
+from user.models import User, MonthlyUserStatistics, Company, UserCompanyRelation, BusinessType, \
+    MonthlyCompanyStatistics
 from user.serializers import MyTokenObtainPairSerializer, RegisterSerializer, ChangePasswordSerializer, \
-    EmailSerializer, ResetPasswordSerializer
+    EmailSerializer, ResetPasswordSerializer, MonthlyUserStatisticsSerializer, CompanySerializer, \
+    UserCompanyRelationSerializer, BusinessTypeSerializer, MonthlyCompanyStatisticsSerializer, BalanceTopUpSerializer
 
 
 # Create your views here.
@@ -305,3 +309,155 @@ class ConfirmEmailChangeView(APIView):
                 return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         else:
             return Response({'error': 'Invalid or expired link'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class GoogleLogin(APIView):
+    @swagger_auto_schema(
+        operation_description="Authenticate using Google OAuth2",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'token': openapi.Schema(type=openapi.TYPE_STRING, description='Firebase ID token')
+            },
+            required=['token']
+        ),
+        responses={
+            200: openapi.Response(
+                description="Successful authentication",
+                examples={
+                    'application/json': {
+                        'refresh': 'string',
+                        'access': 'string',
+                        'user_data': 'object'  # Example of user data response
+                    }
+                }
+            ),
+            400: openapi.Response(description="Invalid token or authentication failed")
+        },
+        tags=["Authentication"]
+    )
+    def post(self, request):
+        token = request.data.get('token')
+        if not token:
+            return Response({'error': 'No token provided'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            decoded_token = auth.verify_id_token(token)
+            uid = decoded_token['uid']
+            name = decoded_token['name']
+            email = decoded_token.get('email')
+            picture = decoded_token.get('picture')
+            phone_number = decoded_token.get('phone_number')  # Получение номера телефона
+
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Проверяем, существует ли пользователь с таким email
+        user, created = User.objects.get_or_create(email=email, defaults={'username': name, 'photo': picture, 'phone': phone_number, 'is_active': True})
+
+        if not created:
+            # Обновляем информацию о пользователе, если он уже существует
+            user.username = name
+            user.photo = picture
+            user.phone = phone_number
+            user.save()
+
+        if user and user.is_active:
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                'refresh': str(refresh),
+                'access': str(refresh.access_token),
+        
+            })
+        else:
+            return Response({'error': 'Authentication failed'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class BusinessTypeListCreateView(generics.ListCreateAPIView):
+    queryset = BusinessType.objects.all()
+    serializer_class = BusinessTypeSerializer
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(tags=["Business Type"])
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    @swagger_auto_schema(tags=["Business Type"])
+    def post(self, request, *args, **kwargs):
+        return super().post(request, *args, **kwargs)
+
+
+class CompanyListCreateView(generics.ListCreateAPIView):
+    queryset = Company.objects.all()
+    serializer_class = CompanySerializer
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(tags=["Company"])
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    @swagger_auto_schema(tags=["Company"])
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            company = serializer.save()
+            # Создание связи между пользователем и компанией
+            UserCompanyRelation.objects.create(user=request.user, company=company, is_verified=True)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserCompanyRelationListView(generics.ListAPIView):
+    serializer_class = UserCompanyRelationSerializer
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(tags=["User Company"])
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    def get_queryset(self):
+        return UserCompanyRelation.objects.filter(user=self.request.user)
+
+class MonthlyUserStatisticsListView(generics.ListAPIView):
+    serializer_class = MonthlyUserStatisticsSerializer
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(tags=["User Statistics"])
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    def get_queryset(self):
+        return MonthlyUserStatistics.objects.filter(user=self.request.user)
+
+class MonthlyCompanyStatisticsListView(generics.ListAPIView):
+    serializer_class = MonthlyCompanyStatisticsSerializer
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(tags=["Company Statistics"])
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    def get_queryset(self):
+        user_companies = UserCompanyRelation.objects.filter(user=self.request.user, is_verified=True).values_list('company', flat=True)
+        return MonthlyCompanyStatistics.objects.filter(company__in=user_companies)
+
+
+class BalanceTopUpView(APIView):
+    permission_classes = [IsAuthenticated]
+    @swagger_auto_schema(tags=["User"],request_body=BalanceTopUpSerializer)
+    def post(self, request):
+        serializer = BalanceTopUpSerializer(data=request.data)
+        if serializer.is_valid():
+            amount = serializer.validated_data['amount']
+            user = request.user
+            user.balance += amount
+            user.save()
+            return Response(
+                {
+                    "status": "success",
+                    "message": "Balance topped up successfully",
+                    "new_balance": float(user.balance)
+                },
+                status=status.HTTP_200_OK
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

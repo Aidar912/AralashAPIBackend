@@ -8,7 +8,8 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from user.enum import Role
-from user.models import User
+from user.models import User, MonthlyUserStatistics, BusinessType, Company, UserCompanyRelation, Subscription, \
+    MonthlyCompanyStatistics, SubscriptionHistory
 
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -103,3 +104,54 @@ class ChangePasswordSerializer(serializers.Serializer):
 
 class ResetPasswordSerializer(serializers.Serializer):
     new_password = serializers.CharField(write_only=True)
+class BusinessTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BusinessType
+        fields = ['id', 'name', 'code', 'description']
+
+class SubscriptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Subscription
+        fields = ['id', 'name', 'max_requests_per_month', 'price', 'created_at']
+
+class CompanySerializer(serializers.ModelSerializer):
+    business_type_id = serializers.PrimaryKeyRelatedField(
+        queryset=BusinessType.objects.all(), source='business_type', write_only=True
+    )
+    subscription_id = serializers.PrimaryKeyRelatedField(
+        queryset=Subscription.objects.all(), source='subscription', write_only=True
+    )
+    business_type = BusinessTypeSerializer(read_only=True)
+    subscription = SubscriptionSerializer(read_only=True)
+
+    class Meta:
+        model = Company
+        fields = [
+            'id', 'name', 'business_type_id', 'business_type', 'registration_number', 'address',
+            'created_at', 'updated_at', 'subscription_id', 'subscription', 'requests_made_this_month'
+        ]
+class UserCompanyRelationSerializer(serializers.ModelSerializer):
+    company = CompanySerializer()
+
+    class Meta:
+        model = UserCompanyRelation
+        fields = ['user', 'company', 'is_verified', 'verified_at', 'created_at']
+
+class MonthlyUserStatisticsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MonthlyUserStatistics
+        fields = ['user', 'month', 'requests_made']
+
+class MonthlyCompanyStatisticsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MonthlyCompanyStatistics
+        fields = ['company', 'month', 'requests_made']
+
+class SubscriptionHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SubscriptionHistory
+        fields = ['user', 'company', 'subscription', 'amount', 'date']
+
+
+class BalanceTopUpSerializer(serializers.Serializer):
+    amount = serializers.DecimalField(max_digits=10, decimal_places=2)

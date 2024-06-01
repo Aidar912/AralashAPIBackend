@@ -1,5 +1,3 @@
-
-
 from django.urls import path
 
 from .views import *
@@ -16,4 +14,15 @@ urlpatterns = [
     path('change-email/', ChangeEmailView.as_view(), name='change_email'),
     path('confirm-registration/<uuid:token>/', ConfirmRegistrationView.as_view(), name='confirm_registration'),
     path('confirm-email/<uuid:token>', ConfirmEmailChangeView.as_view(), name='change-email'),
+    path('auth/google/', GoogleLogin.as_view(), name='google_login'),
+
+    path('user-statistics/', MonthlyUserStatisticsListView.as_view(), name='user-statistics-list'),
+
+    path('business-types/', BusinessTypeListCreateView.as_view(), name='business-type-list-create'),
+    path('companies/', CompanyListCreateView.as_view(), name='company-list-create'),
+    path('user-companies/', UserCompanyRelationListView.as_view(), name='user-company-list'),
+    path('user-statistics/', MonthlyUserStatisticsListView.as_view(), name='user-statistics-list'),
+    path('company-statistics/', MonthlyCompanyStatisticsListView.as_view(), name='company-statistics-list'),
+
+    path('topup', BalanceTopUpView.as_view(), name='balance_topup'),
 ]
