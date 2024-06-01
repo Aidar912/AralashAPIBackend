@@ -1,10 +1,26 @@
 from rest_framework import serializers
-from .models import Payment, WithdrawalRequest
+
+from .models import PaymentMethod, Invoice, Withdrawal,WithdrawalRequest
 
 
-class PaymentSerializer(serializers.ModelSerializer):
+
+
+class PaymentMethodSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Payment
+        model = PaymentMethod
+        fields = '__all__'
+
+
+class InvoiceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Invoice
+        fields = '__all__'
+
+
+
+class WithdrawalSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Withdrawal
         fields = '__all__'
 
 class WithdrawalRequestSerializer(serializers.ModelSerializer):
@@ -27,7 +43,7 @@ class ConfirmWithdrawalRequestSerializer(serializers.Serializer):
     id = serializers.CharField()
 
 
-from rest_framework import serializers
+
 
 class CancelWithdrawalRequestSerializer(serializers.Serializer):
     auth_login = serializers.CharField()
