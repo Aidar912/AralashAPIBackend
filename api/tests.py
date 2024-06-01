@@ -4,7 +4,7 @@ import uuid
 from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
-from .models import APIKey, User, APIKey, Invoice, Withdrawal
+from .models import APIKey, User, Payment
 
 
 class APITests(APITestCase):
@@ -70,287 +70,57 @@ class APITests(APITestCase):
     #     self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 
-class InvoiceAPITests(APITestCase):
+class PaymentAPITests(APITestCase):
     def setUp(self):
+        # Создаем пользователя и API ключ
         self.user = User.objects.create_user(username='testuser', email='testuser@example.com', password='password')
-        self.api_secret = APIKey.objects.create(user=self.user)
-        self.client = APIClient()
+        self.api_key = APIKey.objects.create(user=self.user)
 
-    def test_create_invoice_success(self):
-        url = reverse('create-invoice')
-        data = {
-            'auth_login': self.user.email,
-            'auth_secret': str(self.api_secret.secret),
-            'amount': 100.00,
-            'currency': 'USD',
-            'type': 'purchase',
-            'description': 'Payment for services',
-            'redirect_url': 'https://example.com/redirect',
-            'callback_url': 'https://example.com/callback',
-            'extra': 'Internal payment ID',
-            'payer_details': 'payer@example.com',
-            'lifetime': 60
+        self.client = APIClient()
+        self.client.credentials(HTTP_API_KEY=self.api_key.key)
+
+        self.payment_data = {
+            'amount': '100.00',
+            'currency': 'KGS',
+            'description': 'Test Payment',
+            'client_data': {'name': 'John Doe', 'email': 'john@example.com'}
         }
-        response = self.client.post(url, data, format='json')
-        if response.status_code != status.HTTP_201_CREATED:
-            print(response.data)
+
+    def test_create_payment(self):
+        url = reverse('create-payment')
+        response = self.client.post(url, self.payment_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertIn('id', response.data)
         self.assertEqual(response.data['status'], 'created')
 
-    def test_create_invoice_invalid_auth(self):
-        url = reverse('create-invoice')
-        data = {
-            'auth_login': self.user.email,
-            'auth_secret': str(uuid.uuid4()),  # Используем неверный secret
-            'amount': 100.00,
-            'currency': 'USD',
-            'type': 'purchase',
-            'description': 'Payment for services',
-            'redirect_url': 'https://example.com/redirect',
-            'callback_url': 'https://example.com/callback',
-            'extra': 'Internal payment ID',
-            'payer_details': 'payer@example.com',
-            'lifetime': 60
-        }
-        response = self.client.post(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertIn('error', response.data)
-        self.assertEqual(response.data['error'], 'Invalid auth_login or auth_secret')
-
-    def test_create_invoice_missing_fields(self):
-        url = reverse('create-invoice')
-        data = {
-            'auth_login': self.user.email,
-            'auth_secret': str(self.api_secret.secret),
-            # Пропущены обязательные поля
-            'amount': 100.00,
-            'currency': 'USD',
-            'type': 'purchase',
-            # 'lifetime': 60
-        }
-        response = self.client.post(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('lifetime', response.data)
-
-
-
-class InvoiceGETAPITests(APITestCase):
-    def setUp(self):
-        self.user = User.objects.create_user(username='testuser', email='testuser@example.com', password='password')
-        self.api_secret = APIKey.objects.create(user=self.user)
-        self.client = APIClient()
-
-        self.invoice = Invoice.objects.create(
+    def test_get_payment_status(self):
+        payment = Payment.objects.create(
+            id=uuid.uuid4(),
             user=self.user,
-            amount=100.00,
-            amount_currency='USD',
-            type='purchase',
-            description='Payment for services',
-            redirect_url='https://example.com/redirect',
-            callback_url='https://example.com/callback',
-            extra='Internal payment ID',
-            payer_details='payer@example.com',
-            lifetime=60
+            amount='100.00',
+            currency='KGS',
+            description='Test Payment',
+            client_data={'name': 'John Doe', 'email': 'john@example.com'},
+            status='created'
         )
-
-    def test_get_invoice_info_success(self):
-        url = reverse('invoice-info')
-        data = {
-            'auth_login': self.user.email,
-            'auth_secret': str(self.api_secret.secret),
-            'id': str(self.invoice.id)
-        }
-        response = self.client.post(url, data, format='json')
+        url = reverse('payment-status', args=[payment.id])
+        response = self.client.get(url, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['id'], str(self.invoice.id))
-        self.assertEqual(float(response.data['amount']), 100.00)
-        self.assertEqual(response.data['amount_currency'], 'USD')
-        self.assertEqual(response.data['type'], 'purchase')
+        self.assertEqual(str(response.data['id']), str(payment.id))  # Приведение к строке
+        self.assertEqual(response.data['status'], 'created')
 
-    def test_get_invoice_info_invalid_auth(self):
-        url = reverse('invoice-info')
-        data = {
-            'auth_login': self.user.email,
-            'auth_secret': str(uuid.uuid4()),  # Неверный secret
-            'id': str(self.invoice.id)
-        }
-        response = self.client.post(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertIn('error', response.data)
-        self.assertEqual(response.data['error'], 'Invalid auth_login or auth_secret')
-
-    def test_get_invoice_info_not_found(self):
-        url = reverse('invoice-info')
-        data = {
-            'auth_login': self.user.email,
-            'auth_secret': str(self.api_secret.secret),
-            'id': str(uuid.uuid4())  # Неверный ID инвойса
-        }
-        response = self.client.post(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-
-
-class PaymentHistoryAPITests(APITestCase):
-    def setUp(self):
-        self.user = User.objects.create_user(username='testuser', email='testuser@example.com', password='password')
-        self.api_secret = APIKey.objects.create(user=self.user)
-        self.client = APIClient()
-
-        self.invoice1 = Invoice.objects.create(
+    def test_cancel_payment(self):
+        payment = Payment.objects.create(
+            id=uuid.uuid4(),
             user=self.user,
-            amount=100.00,
-            amount_currency='USD',
-            type='purchase',
-            description='Payment for services',
-            redirect_url='https://example.com/redirect',
-            callback_url='https://example.com/callback',
-            extra='Internal payment ID 1',
-            payer_details='payer1@example.com',
-            lifetime=60
+            amount='100.00',
+            currency='KGS',
+            description='Test Payment',
+            client_data={'name': 'John Doe', 'email': 'john@example.com'},
+            status='created'
         )
-
-        self.invoice2 = Invoice.objects.create(
-            user=self.user,
-            amount=200.00,
-            amount_currency='EUR',
-            type='topup',
-            description='Top up account',
-            redirect_url='https://example.com/redirect',
-            callback_url='https://example.com/callback',
-            extra='Internal payment ID 2',
-            payer_details='payer2@example.com',
-            lifetime=60
-        )
-
-    def test_get_payment_history_success(self):
-        url = reverse('payment-history')
-        data = {
-            'auth_login': self.user.email,
-            'auth_secret': str(self.api_secret.secret)
-        }
-        response = self.client.post(url, data, format='json')
+        url = reverse('cancel-payment', args=[payment.id])
+        response = self.client.post(url, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 2)
-        self.assertEqual(float(response.data[0]['amount']), 100.00)
-        self.assertEqual(float(response.data[1]['amount']), 200.00)
-
-    def test_get_payment_history_invalid_auth(self):
-        url = reverse('payment-history')
-        data = {
-            'auth_login': self.user.email,
-            'auth_secret': str(uuid.uuid4())  # Неверный secret
-        }
-        response = self.client.post(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertIn('error', response.data)
-        self.assertEqual(response.data['error'], 'Invalid auth_login or auth_secret')
-
-
-class WithdrawalHistoryAPITests(APITestCase):
-    def setUp(self):
-        self.user = User.objects.create_user(username='testuser', email='testuser@example.com', password='password')
-        self.api_secret = APIKey.objects.create(user=self.user)
-        self.client = APIClient()
-
-        self.withdrawal1 = Withdrawal.objects.create(
-            user=self.user,
-            amount=100.00,
-            currency='USD',
-            method='BITCOIN',
-            status='completed'
-        )
-
-        self.withdrawal2 = Withdrawal.objects.create(
-            user=self.user,
-            amount=200.00,
-            currency='EUR',
-            method='ETHEREUM',
-            status='pending'
-        )
-
-    def test_get_withdrawal_history_success(self):
-        url = reverse('withdrawal-history')
-        data = {
-            'auth_login': self.user.email,
-            'auth_secret': str(self.api_secret.secret)
-        }
-        response = self.client.post(url, data, format='json')
-        print("Request Data:", data)
-        print("Response Data:", response.data)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 2)
-        self.assertEqual(float(response.data[0]['amount']), 100.00)
-        self.assertEqual(float(response.data[1]['amount']), 200.00)
-
-    def test_get_withdrawal_history_invalid_auth(self):
-        url = reverse('withdrawal-history')
-        data = {
-            'auth_login': self.user.email,
-            'auth_secret': str(uuid.uuid4())  # Неверный secret
-        }
-        response = self.client.post(url, data, format='json')
-        print("Request Data:", data)
-        print("Response Data:", response.data)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertIn('error', response.data)
-        self.assertEqual(response.data['error'], 'Invalid auth_login or auth_secret')
-
-
-class GeneralStatisticsAPITests(APITestCase):
-    def setUp(self):
-        self.user = User.objects.create_user(username='testuser', email='testuser@example.com', password='password')
-        self.api_secret = APIKey.objects.create(user=self.user)
-        self.client = APIClient()
-
-        Invoice.objects.create(
-            user=self.user,
-            amount=100.00,
-            amount_currency='USD',
-            type='purchase',
-            status='completed',
-            lifetime=60  # Добавляем значение для lifetime
-        )
-
-        Invoice.objects.create(
-            user=self.user,
-            amount=200.00,
-            amount_currency='USD',
-            type='topup',
-            status='completed',
-            lifetime=60  # Добавляем значение для lifetime
-        )
-
-        Withdrawal.objects.create(
-            user=self.user,
-            amount=50.00,
-            currency='USD',
-            method='BITCOIN',
-            status='completed'
-        )
-
-    def test_get_general_statistics_success(self):
-        url = reverse('general-statistics')
-        data = {
-            'auth_login': self.user.email,
-            'auth_secret': str(self.api_secret.secret)
-        }
-        response = self.client.post(url, data, format='json')
-        print("Request Data:", data)
-        print("Response Data:", response.data)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(float(response.data['total_invoices']), 300.00)
-        self.assertEqual(float(response.data['total_withdrawals']), 50.00)
-
-    def test_get_general_statistics_invalid_auth(self):
-        url = reverse('general-statistics')
-        data = {
-            'auth_login': self.user.email,
-            'auth_secret': str(uuid.uuid4())  # Неверный secret
-        }
-        response = self.client.post(url, data, format='json')
-        print("Request Data:", data)
-        print("Response Data:", response.data)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertIn('error', response.data)
-        self.assertEqual(response.data['error'], 'Invalid auth_login or auth_secret')
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, 'canceled')

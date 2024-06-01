@@ -1,10 +1,6 @@
-
-from django.db.models import Sum
-
 from decimal import Decimal
 
 import requests
-
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -12,8 +8,9 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
 from rest_framework import generics
-from user.models import Subscription, Company, SubscriptionHistory, User
+from user.models import Subscription, Company, SubscriptionHistory
 from user.serializers import SubscriptionSerializer, CompanySerializer, SubscriptionHistorySerializer
+
 
 from django.shortcuts import get_object_or_404
 from rest_framework.pagination import PageNumberPagination
@@ -23,9 +20,7 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from .authentication import APIKeyAuthentication
-from .models import APIKey, APIKey, Invoice, Withdrawal,WithdrawalRequest
-from .serializers import InvoiceSerializer, WithdrawalSerializer
-
+from .models import APIKey, Payment, WithdrawalRequest
 from .serializers import PaymentSerializer, WithdrawalRequestSerializer, ConfirmWithdrawalRequestSerializer, \
     CancelWithdrawalRequestSerializer, GetWithdrawalRequestSerializer
 from .utils import verify_key
@@ -115,7 +110,6 @@ class CheckKeyView(APIView):
         key_value = request.data.get('key')
         try:
             api_key = APIKey.objects.get(key=key_value, company__usercompanyrelation__user=request.user, is_active=True)
-
             return Response({'valid': True}, status=status.HTTP_200_OK)
         except APIKey.DoesNotExist:
             return Response({'valid': False}, status=status.HTTP_404_NOT_FOUND)
@@ -179,11 +173,9 @@ class DeactivateKeyView(APIView):
             return Response({'error': 'API key not found'}, status=status.HTTP_404_NOT_FOUND)
 
 
-
-class PaymentHistoryView(APIView):
-    def post(self, request):
-        auth_login = request.data.get('auth_login')
-        auth_secret = request.data.get('auth_secret')
+class CreatePaymentView(APIView):
+    authentication_classes = [APIKeyAuthentication]
+    permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
         tags=["Payment"],
@@ -242,16 +234,9 @@ class CancelPaymentView(APIView):
         return Response({'id': payment.id, 'status': payment.status})
 
 
-        try:
-            user = User.objects.get(email=auth_login)
-            api_secret = APIKey.objects.get(user=user, secret=auth_secret, is_active=True)
-        except (User.DoesNotExist, APIKey.DoesNotExist):
-            return Response({'error': 'Invalid auth_login or auth_secret'}, status=status.HTTP_403_FORBIDDEN)
-
-        payments = Invoice.objects.filter(user=user)
-        serializer = InvoiceSerializer(payments, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
+class PaymentHistoryView(APIView):
+    authentication_classes = [APIKeyAuthentication]
+    permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
         tags=["Payment"],
@@ -267,7 +252,6 @@ class CancelPaymentView(APIView):
         paginated_payments = paginator.paginate_queryset(payments, request)
         serializer = PaymentSerializer(paginated_payments, many=True)
         return paginator.get_paginated_response(serializer.data)
-
 
 class ChangeSubscriptionView(generics.UpdateAPIView):
     queryset = Company.objects.all()
@@ -293,11 +277,9 @@ class ChangeSubscriptionView(generics.UpdateAPIView):
 
         return Response({"message": "Subscription updated successfully"}, status=status.HTTP_200_OK)
 
-
     @swagger_auto_schema(tags=["subscriptions"])
     def put(self, request, *args, **kwargs):
         return super().put(request,*args,**kwargs)
-
 
 class SubscriptionHistoryListView(generics.ListAPIView):
     serializer_class = SubscriptionHistorySerializer
@@ -310,84 +292,6 @@ class SubscriptionHistoryListView(generics.ListAPIView):
     def get_queryset(self):
         return SubscriptionHistory.objects.filter(user=self.request.user).order_by('-date')
 
-
-
-class CreateInvoiceView(APIView):
-    def post(self, request):
-        auth_login = request.data.get('auth_login')
-        auth_secret = request.data.get('auth_secret')
-
-        try:
-            user = User.objects.get(email=auth_login)
-            api_secret = APIKey.objects.get(user=user, secret=auth_secret, is_active=True)
-        except (User.DoesNotExist, APIKey.DoesNotExist):
-            return Response({'error': 'Invalid auth_login or auth_secret'}, status=status.HTTP_403_FORBIDDEN)
-
-        data = request.data.copy()
-        data['user'] = user.id
-        data.pop('auth_login')
-        data.pop('auth_secret')
-
-        serializer = InvoiceSerializer(data=data)
-        if serializer.is_valid():
-            invoice = serializer.save()
-            return Response({'id': invoice.id, 'status': invoice.status}, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class InvoiceDetailView(APIView):
-    def post(self, request):
-        auth_login = request.data.get('auth_login')
-        auth_secret = request.data.get('auth_secret')
-        invoice_id = request.data.get('id')
-
-        try:
-            user = User.objects.get(email=auth_login)
-            api_secret = APIKey.objects.get(user=user, secret=auth_secret, is_active=True)
-        except (User.DoesNotExist, APIKey.DoesNotExist):
-            return Response({'error': 'Invalid auth_login or auth_secret'}, status=status.HTTP_403_FORBIDDEN)
-
-        invoice = get_object_or_404(Invoice, id=invoice_id, user=user)
-        serializer = InvoiceSerializer(invoice)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-class WithdrawalHistoryView(APIView):
-    def post(self, request):
-        auth_login = request.data.get('auth_login')
-        auth_secret = request.data.get('auth_secret')
-
-        try:
-            user = User.objects.get(email=auth_login)
-            api_secret = APIKey.objects.get(user=user, secret=auth_secret, is_active=True)
-        except (User.DoesNotExist, APIKey.DoesNotExist):
-            return Response({'error': 'Invalid auth_login or auth_secret'}, status=status.HTTP_403_FORBIDDEN)
-
-        withdrawals = Withdrawal.objects.filter(user=user)
-        serializer = WithdrawalSerializer(withdrawals, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-class GeneralStatisticsView(APIView):
-    def post(self, request):
-        auth_login = request.data.get('auth_login')
-        auth_secret = request.data.get('auth_secret')
-
-        try:
-            user = User.objects.get(email=auth_login)
-            api_secret = APIKey.objects.get(user=user, secret=auth_secret, is_active=True)
-        except (User.DoesNotExist, APIKey.DoesNotExist):
-            return Response({'error': 'Invalid auth_login or auth_secret'}, status=status.HTTP_403_FORBIDDEN)
-
-        total_invoices = Invoice.objects.filter(user=user).aggregate(total=Sum('amount'))['total'] or 0
-        total_withdrawals = Withdrawal.objects.filter(user=user).aggregate(total=Sum('amount'))['total'] or 0
-
-        data = {
-            'total_invoices': total_invoices,
-            'total_withdrawals': total_withdrawals
-        }
-
-        return Response(data, status=status.HTTP_200_OK)
 
 
 class WithdrawalRequestView(APIView):
@@ -628,6 +532,8 @@ class GetWithdrawalRequestView(APIView):
             }
             return Response(response_data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 
 
 

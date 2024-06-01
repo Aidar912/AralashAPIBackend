@@ -9,61 +9,34 @@ from user.models import User, Company
 
 
 class APIKey(models.Model):
-
     key = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     company = models.ForeignKey(Company, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
-
         return f'APIKey {self.key} for {self.company.name}'
 
 
+class Payment(models.Model):
+    STATUS_CHOICES = [
+        ('created', 'Created'),
+        ('processed', 'Processed'),
+        ('canceled', 'Canceled'),
+        ('completed', 'Completed'),
+    ]
 
-class PaymentMethod(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    name = models.CharField(max_length=100)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)  # Добавляем это поле
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    currency = models.CharField(max_length=10, default="KGS")
     description = models.TextField()
-    is_active = models.BooleanField(default=True)
+    client_data = models.JSONField(default={})
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='created')
+    created_at = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
-        return self.name
-
-
-class Invoice(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    amount = models.DecimalField(max_digits=20, decimal_places=8)
-    amount_currency = models.CharField(max_length=10, blank=True, null=True)
-    required_method = models.CharField(max_length=50, blank=True, null=True)
-    type = models.CharField(max_length=20)
-    description = models.TextField(blank=True, null=True)
-    redirect_url = models.URLField(blank=True, null=True)
-    callback_url = models.URLField(blank=True, null=True)
-    extra = models.TextField(blank=True, null=True)
-    payer_details = models.CharField(max_length=100, blank=True, null=True)
-    lifetime = models.IntegerField()
-    created_at = models.DateTimeField(auto_now_add=True)
-    status = models.CharField(max_length=20, default='created')
-
-    def __str__(self):
-        return f"Invoice {self.id} - {self.status}"
-
-
-class Withdrawal(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    amount = models.DecimalField(max_digits=20, decimal_places=8)
-    currency = models.CharField(max_length=10)
-    method = models.CharField(max_length=50)
-    created_at = models.DateTimeField(auto_now_add=True)
-    status = models.CharField(max_length=20)
-
-    def __str__(self):
-
-        return f"Withdrawal {self.id} - {self.status}"
-
+        return f"Payment {self.id} - {self.status}"
 
 
 class WithdrawalRequest(models.Model):
@@ -112,4 +85,3 @@ class WithdrawalRequest(models.Model):
 
     def __str__(self):
         return f"{self.user.email} - {self.amount} {self.amount_currency} - {self.method}"
-
