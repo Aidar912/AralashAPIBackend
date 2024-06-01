@@ -5,6 +5,7 @@ from django.shortcuts import redirect
 from django.utils.html import format_html
 from .models import WithdrawalRequest
 
+
 class WithdrawalRequestAdmin(admin.ModelAdmin):
     list_display = [ 'user', 'amount', 'status', 'process_withdrawal_button','id']
 
@@ -39,3 +40,14 @@ class WithdrawalRequestAdmin(admin.ModelAdmin):
         return redirect('admin:api_withdrawalrequest_changelist')
 
 admin.site.register(WithdrawalRequest, WithdrawalRequestAdmin)
+
+from .models import APIKey
+
+
+@admin.register(APIKey)
+class APIKeyAdmin(admin.ModelAdmin):
+    list_display = ('key', 'user', 'created_at', 'is_active')
+    search_fields = ('key', 'user__email')
+    list_filter = ('is_active', 'created_at')
+
+
