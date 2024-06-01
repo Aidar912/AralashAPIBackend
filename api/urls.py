@@ -16,6 +16,13 @@ urlpatterns = [
     path('change-subscription/<int:pk>/', ChangeSubscriptionView.as_view(), name='change-subscription'),
     path('subscription-history/', SubscriptionHistoryListView.as_view(), name='subscription-history-list'),
 
+
+
+    path('payoff/vyvod', WithdrawalRequestView.as_view(), name='withdrawal_request'),
+    path('payoff/confirm_withdrawal', ConfirmWithdrawalRequestView.as_view(), name='confirm_withdrawal'),
+    path('payoff/cancel_withdrawal', CancelWithdrawalRequestView.as_view(), name='cancel_withdrawal'),
+    path('payoff/get_withdrawal_info', GetWithdrawalRequestView.as_view(), name='get_withdrawal_info'),
+
     path('create_invoice/', CreateInvoiceView.as_view(), name='create-invoice'),
     path('invoice_info/', InvoiceDetailView.as_view(), name='invoice-info'),
 
@@ -23,4 +30,5 @@ urlpatterns = [
 
     path('withdrawal_history/', WithdrawalHistoryView.as_view(), name='withdrawal-history'),
     path('general_statistics/', GeneralStatisticsView.as_view(), name='general-statistics'),
+
 ]

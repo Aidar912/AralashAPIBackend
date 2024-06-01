@@ -1,0 +1,11 @@
+{% extends "admin/change_form.html" %}
+{% load static %}
+
+{% block submit_buttons_bottom %}
+    {{ block.super }}
+    {% if show_process_button %}
+        <div class="submit-row">
+            <a class="button" href="{% url 'admin:process_withdrawal' original.id %}">Mark as Payed and Deduct Balance</a>
+        </div>
+    {% endif %}
+{% endblock %}

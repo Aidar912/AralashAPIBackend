@@ -23,4 +23,6 @@ urlpatterns = [
     path('user-companies/', UserCompanyRelationListView.as_view(), name='user-company-list'),
     path('user-statistics/', MonthlyUserStatisticsListView.as_view(), name='user-statistics-list'),
     path('company-statistics/', MonthlyCompanyStatisticsListView.as_view(), name='company-statistics-list'),
+
+    path('topup', BalanceTopUpView.as_view(), name='balance_topup'),
 ]
