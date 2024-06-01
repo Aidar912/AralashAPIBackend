@@ -46,8 +46,8 @@ from .models import APIKey
 
 @admin.register(APIKey)
 class APIKeyAdmin(admin.ModelAdmin):
-    list_display = ('key', 'user', 'created_at', 'is_active')
-    search_fields = ('key', 'user__email')
+    list_display = ('key', 'company', 'created_at', 'is_active')
+    search_fields = ('key', 'company__name')
     list_filter = ('is_active', 'created_at')
 
 
